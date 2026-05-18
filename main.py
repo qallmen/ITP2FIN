@@ -11,7 +11,6 @@ from utils import calculate_nearest_places, format_feedback
 
 load_dotenv()
 
-# TOKEN configurations setup safely via environment injection
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     raise ValueError(
@@ -21,20 +20,21 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 db = DatabaseManager()
 
-# Developer Handle Targets
 DEVELOPER_USERNAMES = ["@qallmen", "@arabek127", "@bzglnazerke"]
 
 
 class BotStates(StatesGroup):
     waiting_for_feedback = State()
     waiting_for_dev_feedback = State()
+    waiting_for_help = State()  # <-- Добавили состояние ожидания помощи
 
 
 def get_main_kb():
     return types.ReplyKeyboardMarkup(keyboard=[
         [types.KeyboardButton(text="📍 Nearest Cool Places", request_location=True)],
         [types.KeyboardButton(text="🍴 Restaurants"), types.KeyboardButton(text="🌳 Parks")],
-        [types.KeyboardButton(text="📚 Libraries"), types.KeyboardButton(text="👨‍💻 Developers")]
+        [types.KeyboardButton(text="📚 Libraries"), types.KeyboardButton(text="👨‍💻 Developers")],
+        [types.KeyboardButton(text="🆘 Need Help?")]  # <-- Вот наша новая кнопка!
     ], resize_keyboard=True)
 
 
@@ -176,6 +176,10 @@ async def init_dev_feedback(call: types.CallbackQuery, state: FSMContext):
     await call.answer()
 
 
+
+DEVELOPER_IDS = [7287838167, 802237634, 1049071247]
+
+
 @dp.message(BotStates.waiting_for_dev_feedback)
 async def route_dev_feedback(message: types.Message, state: FSMContext):
     sender = message.from_user.username or message.from_user.full_name
@@ -185,21 +189,52 @@ async def route_dev_feedback(message: types.Message, state: FSMContext):
         f"💬 Message: {message.text}"
     )
 
-    # Sends alert notification directly to developers
-    for dev_username in DEVELOPER_USERNAMES:
+    for dev_id in DEVELOPER_IDS:
         try:
-            # Note: For bots to message users directly, the developer must have contextually /start-ed the bot beforehand.
-            # If tracking explicit user IDs for devs, swap handle logic arrays dynamically.
-            pass
-        except Exception:
-            pass
+            await bot.send_message(chat_id=dev_id, text=dispatch_alert_text, parse_mode="Markdown")
+        except Exception as e:
+            print(f"[ERROR] Не удалось отправить сообщение на ID {dev_id}: {e}")
 
-    # Echo log representation inside execution stream tracking
     print(f"[DEVELOPER FEEDBACK LOG] From @{sender}: {message.text}")
 
     await message.answer("🚀 Thank you! Your feedback message has been transmitted directly onto the team workflows.")
     await state.clear()
 
+
+# ==========================================
+# 5. EMERGENCY HELP CHANNELS
+# ==========================================
+
+@dp.message(F.text == "🆘 Need Help?")
+async def init_help_request(message: types.Message, state: FSMContext):
+    await message.answer("🚨 **Emergency Help Support**\n\n"
+                         "Please describe your problem or question in one message. "
+                         "It will be sent immediately to all our developers as an urgent ticket!",
+                         parse_mode="Markdown")
+    await state.set_state(BotStates.waiting_for_help)
+
+
+@dp.message(BotStates.waiting_for_help)
+async def route_help_to_devs(message: types.Message, state: FSMContext):
+    sender = message.from_user.username or message.from_user.full_name
+
+    emergency_alert_text = (
+        f"🚨 🔥 **URGENT HELP REQUIRED!** 🔥 🚨\n\n"
+        f"👤 **From User:** @{sender} (`{message.from_user.id}`)\n"
+        f"✉️ **Problem Description:** {message.text}"
+    )
+
+    for dev_id in DEVELOPER_IDS:
+        try:
+            await bot.send_message(chat_id=dev_id, text=emergency_alert_text, parse_mode="Markdown")
+        except Exception as e:
+            print(f"[ERROR] Не удалось отправить сигнал о помощи на ID {dev_id}: {e}")
+
+    print(f"[HELP TICKET LOG] Emergency ticket from @{sender}: {message.text}")
+
+    await message.answer("🚀 **Sent!** Our team has been notified. We will get back to you as soon as possible!",
+                         reply_markup=get_main_kb())
+    await state.clear()
 
 async def main():
     print("🤖 Launching Astana Guide Bot Service Engine running perfectly...")
