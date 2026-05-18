@@ -58,8 +58,7 @@ async def handle_location(message: types.Message):
     await message.answer(response, parse_mode="Markdown")
     # Provide Map pin layout mapping to top close element target
     await message.answer_location(latitude=nearest[0]['lat'], longitude=nearest[0]['lon'])
-
-
+#проверка
 # 2. CARDS PRESENTATION FRAMEWORK ENGINE
 async def send_place_card(message_or_call, category, index):
     places = db.get_places_by_category(category)
