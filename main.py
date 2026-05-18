@@ -6,15 +6,19 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from geopy.distance import geodesic
 
-from notion_client import Client # Add this at the very top
-
-
+# 1. SETUP
+BOT_TOKEN = "8734845651:AAFdQWfsYT9XfM7JqqDpobcSMfYdSMRzsXo"
+ADMIN_HANDLES = "@qallmen, @arabek127, @bzglnazerke"
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
-notion = Client(auth=NOTION_TOKEN) # Initializes Notion
+
+class BotStates(StatesGroup):
+    waiting_for_help = State()
+    waiting_for_feedback = State()
+
 # 2. DATA STORAGE
 RESTAURANTS = [
-    {"name": "Line Brew Astana", "desc": "One of the city’s most famous steakhouses. Known for premium meat, grilled dishes, and house beer.", "link": "https://2gis.kz/astana/search/Line%20Brew", "lat": 51.1491, "lon": 71.4241, "photo": "https://2gis.kz/astana/gallery/geo/70000001030035728/photoId/30258560193956857", "feeds": []},
+    {"name": "Line Brew Astana", "desc": "One of the city’s most famous steakhouses. Known for premium meat, grilled dishes, and house beer.", "link": "https://2gis.kz/astana/search/Line%20Brew", "lat": 51.1491, "lon": 71.4241, "photo": "https://line-brew.kz/wp-content/uploads/2021/05/steak.jpg", "feeds": []},
     {"name": "Saksaul", "desc": "Classic Kazakh and Central Asian restaurant with traditional interior, plov, horse meat dishes, and shashlik.", "link": "https://2gis.kz/astana/search/Saksaul", "lat": 51.1272, "lon": 71.4334, "photo": "https://sxodim.com/uploads/posts/2023/05/15/original.jpg", "feeds": []},
     {"name": "Felice", "desc": "Upscale Italian restaurant with elegant atmosphere, pasta, seafood, and fine dining service.", "link": "https://2gis.kz/astana/search/Felice", "lat": 51.1250, "lon": 71.4250, "photo": "https://images.unsplash.com/photo-1559339352-11d035aa65de", "feeds": []},
     {"name": "The Kitchen", "desc": "Modern European restaurant popular for breakfasts, steaks, and business dinners.", "link": "https://2gis.kz/astana/search/The%20Kitchen", "lat": 51.1211, "lon": 71.4289, "photo": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4", "feeds": []},
