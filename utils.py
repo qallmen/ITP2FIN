@@ -1,6 +1,6 @@
 from geopy.distance import geodesic
 
-def calculate_nearest_places(user_lat, user_lon, all_places, limit=5):
+def calculate_nearest_places(user_lat, user_lon, all_places, limit=3):
     user_pos = (user_lat, user_lon)
     processed_list = []
 

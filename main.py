@@ -166,14 +166,14 @@ async def handle_location(message: types.Message, state: FSMContext):
     if not all_items:
         await message.answer(texts["no_db"])
         return
-
-    nearest = calculate_nearest_places(message.location.latitude, message.location.longitude, all_items, limit=10)
+    nearest = calculate_nearest_places(message.location.latitude, message.location.longitude, all_items, limit=3)
 
     response = texts["top_nearest"]
     for i, p in enumerate(nearest, 1):
         desc = p.get(f'description_{lang}', p['description_en'])
         response += f"{i}. **{p['name']}** ({p['distance']:.2f} km)\n_{desc}_\n\n"
     await message.answer(response, parse_mode="Markdown")
+
     await message.answer_location(latitude=nearest[0]['lat'], longitude=nearest[0]['lon'])
 
 
