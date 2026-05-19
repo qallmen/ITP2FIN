@@ -106,6 +106,40 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 db = DatabaseManager()
 
+import functools
+import datetime
+
+
+#DECORATOR
+def log_user_action(func):
+    @functools.wraps(func)
+    async def wrapper(message_or_call, *args, **kwargs):
+        is_msg = isinstance(message_or_call, types.Message)
+        user = message_or_call.from_user
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        action_type = "TEXT" if is_msg else "CALLBACK"
+        content = message_or_call.text if is_msg else message_or_call.data
+
+        print(f"[{current_time}] [{action_type}] User: @{user.username} (ID: {user.id}) triggered -> {content}")
+
+        return await func(message_or_call, *args, **kwargs)
+
+    return wrapper
+
+
+#GENERATOR
+def review_sentence_generator(reviews_list):
+    if not reviews_list:
+        yield "💬 Пока нет отзывов. Будьте первыми!"
+        return
+
+    for idx, review in enumerate(reviews_list, 1):
+        text = review if isinstance(review, str) else review.get('text', '')
+
+        yield f"  {idx}. {text}\n"
+
+
 DEVELOPER_IDS = [7287838167, 802237634, 1049071247]
 
 
@@ -133,6 +167,7 @@ def get_main_kb(lang):
 
 
 @dp.message(Command("start"))
+@log_user_action  # Наш кастомный декоратор логирования!
 async def cmd_start(message: types.Message, state: FSMContext):
     await message.answer("🌐 Choose your language / Тілді таңдаңыз / Выберите язык:", reply_markup=get_language_kb())
     await state.set_state(BotStates.waiting_for_language)
@@ -190,7 +225,10 @@ async def send_place_card(message_or_call, category, index, state: FSMContext):
 
     item = places[index % len(places)]
     reviews = db.get_reviews_by_place(item['name'])
-    formatted_reviews = format_feedback(reviews, texts["no_feedback"])
+
+    formatted_reviews = ""
+    for review_line in review_sentence_generator(reviews):
+        formatted_reviews += review_line
 
     description = item.get(f'description_{lang}', item['description_en'])
 

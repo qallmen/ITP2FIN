@@ -1,13 +1,28 @@
 import sqlite3
 
-class DatabaseManager:
+#Parent class
+class BaseDataManager:
+    def __init__(self, db_path):
+        self.db_path = db_path
+
+    def get_connection(self):
+        return sqlite3.connect(self.db_path)
+
+
+#child class
+class DatabaseManager(BaseDataManager):
     def __init__(self, db_path='astana_bot.db'):
-        self.conn = sqlite3.connect(db_path)
+        super().__init__(db_path)
+
+        self.conn = self.get_connection()
+
         self.create_tables()
         self.seed_data_if_empty()
 
+    #calling parent class
     def create_tables(self):
-        cursor = self.conn.cursor()
+        conn = self.get_connection()
+        cursor = conn.cursor()
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS places (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,15 +39,8 @@ class DatabaseManager:
                 photo_url TEXT
             )
         ''')
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS reviews (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                place_name TEXT,
-                feedback TEXT,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        self.conn.commit()
+        conn.commit()
+        conn.close()
 
     def add_review(self, place_name, feedback):
         cursor = self.conn.cursor()
