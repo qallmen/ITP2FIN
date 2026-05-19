@@ -35,7 +35,8 @@ LOCALIZATION = {
         "dev_fb_sent": "🚀 Thank you! Your feedback message has been transmitted directly.",
         "help_title": "🚨 **Emergency Help Support**",
         "help_desc": "Please describe your problem or question in one message. It will be sent immediately to all our developers as an urgent ticket!",
-        "help_sent": "🚀 **Sent!** Our team has been notified. We will get back to you as soon as possible!"
+        "help_sent": "🚀 **Sent!** Our team has been notified. We will get back to you as soon as possible!",
+        "no_feedback": "No feedback left yet. Be the first to add your experience!"
     },
     "kz": {
         "welcome": "🏙 Кәсіби Астана Жолсілтеуші Ботына қош келдіңіз!",
@@ -62,7 +63,8 @@ LOCALIZATION = {
         "dev_fb_sent": "🚀 Рақмет! Сіздің хабарламаңыз әзірлеушілерге сәтті жіберілді.",
         "help_title": "🚨 **Шұғыл Көмек Көрсету**",
         "help_desc": "Мәселеңізді немесе сұрағыңызды бір хабарламамен сипаттаңыз. Ол барлық әзірлеушілерге шұғыл билет ретінде жіберіледі!",
-        "help_sent": "🚀 **Жіберілді!** Біздің командаға хабарландыру түсті. Жақын арада жауап береміз!"
+        "help_sent": "🚀 **Жіберілді!** Біздің командаға хабарландыру түсті. Жақын арада жауап береміз!",
+        "no_feedback": "Пікірлер әлі қалдырылмаған. Бірінші болып өз әсеріңізбен бөлісіңіз!"
     },
     "ru": {
         "welcome": "🏙 Добро пожаловать в профессиональный бот-гид по Астане!",
@@ -77,7 +79,7 @@ LOCALIZATION = {
         "open_2gis": "🗺 Открыть в 2GIS",
         "leave_feedback": "✍️ Оставить отзыв",
         "next": "➡️ Следующее",
-        "rating": "Рейтинг",
+        "rating": "Rating",
         "receipt": "Средний чек/Вход",
         "description": "Описание",
         "reviews": "Отзывы пользователей",
@@ -89,7 +91,8 @@ LOCALIZATION = {
         "dev_fb_sent": "🚀 Спасибо! Ваше сообщение было передано напрямую команде.",
         "help_title": "🚨 **Экстренная Служба Поддержки**",
         "help_desc": "Пожалуйста, опишите вашу проблему или вопрос в одном сообщении. Оно будет немедленно отправлено всем разработчикам!",
-        "help_sent": "🚀 **Отправлено!** Наша команда уведомлена. Мы свяжемся с вами как можно скорее!"
+        "help_sent": "🚀 **Отправлено!** Наша команда уведомлена. Мы свяжемся с вами как можно скорее!",
+        "no_feedback": "Отзывов пока нет. Будьте первым, кто поделится своим опытом!"
     }
 }
 
@@ -97,8 +100,7 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
-    raise ValueError(
-        "CRITICAL ERROR: BOT_TOKEN variable not configured inside .env storage environment configuration file.")
+    raise ValueError("CRITICAL ERROR: BOT_TOKEN variable not configured inside .env storage environment configuration file.")
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -116,8 +118,7 @@ class BotStates(StatesGroup):
 
 def get_language_kb():
     return types.ReplyKeyboardMarkup(keyboard=[
-        [types.KeyboardButton(text="🇬🇧 English"), types.KeyboardButton(text="🇰🇿 Қазақша"),
-         types.KeyboardButton(text="🇷🇺 Русский")]
+        [types.KeyboardButton(text="🇬🇧 English"), types.KeyboardButton(text="🇰🇿 Қазақша"), types.KeyboardButton(text="🇷🇺 Русский")]
     ], resize_keyboard=True)
 
 
@@ -130,10 +131,6 @@ def get_main_kb(lang):
         [types.KeyboardButton(text=texts["help"])]
     ], resize_keyboard=True)
 
-
-# ==========================================
-# 1. СТАРТ И ВЫБОР ЯЗЫКА
-# ==========================================
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
@@ -153,16 +150,11 @@ async def process_language_choice(message: types.Message, state: FSMContext):
         await message.answer("Please use the keyboard buttons to pick a language.")
         return
 
-    # Фикс: Корректно сохраняем язык в память FSM
     await state.update_data(user_lang=lang)
     texts = LOCALIZATION[lang]
     await message.answer(texts["welcome"], reply_markup=get_main_kb(lang))
     await state.set_state(None)
 
-
-# ==========================================
-# 2. ГЕОЛОКАЦИЯ (БЛИЖАЙШИЕ МЕСТА)
-# ==========================================
 
 @dp.message(F.location)
 async def handle_location(message: types.Message, state: FSMContext):
@@ -171,20 +163,19 @@ async def handle_location(message: types.Message, state: FSMContext):
     texts = LOCALIZATION[lang]
 
     all_items = db.get_all_places()
+    if not all_items:
+        await message.answer(texts["no_db"])
+        return
+
     nearest = calculate_nearest_places(message.location.latitude, message.location.longitude, all_items, limit=10)
 
     response = texts["top_nearest"]
     for i, p in enumerate(nearest, 1):
-        desc = p.get(f'description_{lang}', p['description'])
+        desc = p.get(f'description_{lang}', p['description_en'])
         response += f"{i}. **{p['name']}** ({p['distance']:.2f} km)\n_{desc}_\n\n"
-
     await message.answer(response, parse_mode="Markdown")
     await message.answer_location(latitude=nearest[0]['lat'], longitude=nearest[0]['lon'])
 
-
-# ==========================================
-# 3. КАРТОЧКИ МЕСТ И КАТЕГОРИИ
-# ==========================================
 
 async def send_place_card(message_or_call, category, index, state: FSMContext):
     state_data = await state.get_data()
@@ -199,9 +190,9 @@ async def send_place_card(message_or_call, category, index, state: FSMContext):
 
     item = places[index % len(places)]
     reviews = db.get_reviews_by_place(item['name'])
-    formatted_reviews = format_feedback(reviews)
+    formatted_reviews = format_feedback(reviews, texts["no_feedback"])
 
-    description = item.get(f'description_{lang}', item['description'])
+    description = item.get(f'description_{lang}', item['description_en'])
 
     text = (
         f"🏆 **{item['name']}**\n"
@@ -216,36 +207,35 @@ async def send_place_card(message_or_call, category, index, state: FSMContext):
         [types.InlineKeyboardButton(text=texts["next"], callback_data=f"next_{category}_{index}")]
     ])
 
-    target_message = message_or_call.message if isinstance(message_or_call, types.CallbackQuery) else message_or_call
     if isinstance(message_or_call, types.CallbackQuery):
         try:
-            await target_message.answer_photo(photo=item['photo_url'], caption=text, reply_markup=kb,
-                                              parse_mode="Markdown")
-            await target_message.delete()
+            await message_or_call.message.edit_media(
+                media=types.InputMediaPhoto(media=item['photo_url'], caption=text, parse_mode="Markdown"),
+                reply_markup=kb
+            )
         except Exception:
-            await target_message.answer(text, reply_markup=kb, parse_mode="Markdown")
+            try:
+                await message_or_call.message.answer_photo(photo=item['photo_url'], caption=text, reply_markup=kb, parse_mode="Markdown")
+                await message_or_call.message.delete()
+            except Exception:
+                await message_or_call.message.answer(text, reply_markup=kb, parse_mode="Markdown")
     else:
         try:
-            await message_or_call.answer_photo(photo=item['photo_url'], caption=text, reply_markup=kb,
-                                               parse_mode="Markdown")
+            await message_or_call.answer_photo(photo=item['photo_url'], caption=text, reply_markup=kb, parse_mode="Markdown")
         except Exception:
             await message_or_call.answer(text, reply_markup=kb, parse_mode="Markdown")
 
-
-@dp.message(lambda msg: msg.text in [LOCALIZATION["en"]["restaurants"], LOCALIZATION["kz"]["restaurants"],
-                                     LOCALIZATION["ru"]["restaurants"]])
+@dp.message(lambda msg: msg.text in [LOCALIZATION["en"]["restaurants"], LOCALIZATION["kz"]["restaurants"], LOCALIZATION["ru"]["restaurants"]])
 async def show_restaurants(message: types.Message, state: FSMContext):
     await send_place_card(message, "rest", 0, state)
 
 
-@dp.message(
-    lambda msg: msg.text in [LOCALIZATION["en"]["parks"], LOCALIZATION["kz"]["parks"], LOCALIZATION["ru"]["parks"]])
+@dp.message(lambda msg: msg.text in [LOCALIZATION["en"]["parks"], LOCALIZATION["kz"]["parks"], LOCALIZATION["ru"]["parks"]])
 async def show_parks(message: types.Message, state: FSMContext):
     await send_place_card(message, "park", 0, state)
 
 
-@dp.message(lambda msg: msg.text in [LOCALIZATION["en"]["libraries"], LOCALIZATION["kz"]["libraries"],
-                                     LOCALIZATION["ru"]["libraries"]])
+@dp.message(lambda msg: msg.text in [LOCALIZATION["en"]["libraries"], LOCALIZATION["kz"]["libraries"], LOCALIZATION["ru"]["libraries"]])
 async def show_libraries(message: types.Message, state: FSMContext):
     await send_place_card(message, "lib", 0, state)
 
@@ -257,10 +247,6 @@ async def handle_next_carousel(call: types.CallbackQuery, state: FSMContext):
     await send_place_card(call, category, next_idx, state)
     await call.answer()
 
-
-# ==========================================
-# 4. ОТЗЫВЫ ПОЛЬЗОВАТЕЛЕЙ (О МЕСТАХ)
-# ==========================================
 
 @dp.callback_query(F.data.startswith("write_"))
 async def init_place_feedback(call: types.CallbackQuery, state: FSMContext):
@@ -286,15 +272,10 @@ async def process_place_feedback(message: types.Message, state: FSMContext):
     await message.answer(texts["saved_feedback"])
 
     await send_place_card(message, state_data['category'], int(state_data['index']), state)
-    await state.set_state(None)  # Сохраняем язык
+    await state.set_state(None)
 
 
-# ==========================================
-# 5. СВЯЗЬ С РАЗРАБОТЧИКАМИ (FEEDBACK)
-# ==========================================
-
-@dp.message(lambda msg: msg.text in [LOCALIZATION["en"]["developers"], LOCALIZATION["kz"]["developers"],
-                                     LOCALIZATION["ru"]["developers"]])
+@dp.message(lambda msg: msg.text in [LOCALIZATION["en"]["developers"], LOCALIZATION["kz"]["developers"], LOCALIZATION["ru"]["developers"]])
 async def show_developers_menu(message: types.Message, state: FSMContext):
     state_data = await state.get_data()
     lang = state_data.get("user_lang", "en")
@@ -332,18 +313,11 @@ async def route_dev_feedback(message: types.Message, state: FSMContext):
         except Exception as e:
             print(f"[ERROR] Не удалось отправить сообщение на ID {dev_id}: {e}")
 
-    print(f"[DEVELOPER FEEDBACK LOG] From @{sender}: {message.text}")
-
     await message.answer(texts["dev_fb_sent"])
     await state.set_state(None)
 
 
-# ==========================================
-# 6. ЭКСТРЕННАЯ ПОМОЩЬ (NEED HELP?)
-# ==========================================
-
-@dp.message(
-    lambda msg: msg.text in [LOCALIZATION["en"]["help"], LOCALIZATION["kz"]["help"], LOCALIZATION["ru"]["help"]])
+@dp.message(lambda msg: msg.text in [LOCALIZATION["en"]["help"], LOCALIZATION["kz"]["help"], LOCALIZATION["ru"]["help"]])
 async def init_help_request(message: types.Message, state: FSMContext):
     state_data = await state.get_data()
     lang = state_data.get("user_lang", "en")
@@ -372,15 +346,9 @@ async def route_help_to_devs(message: types.Message, state: FSMContext):
         except Exception as e:
             print(f"[ERROR] Не удалось отправить сигнал о помощи на ID {dev_id}: {e}")
 
-    print(f"[HELP TICKET LOG] Emergency ticket from @{sender}: {message.text}")
-
     await message.answer(texts["help_sent"], reply_markup=get_main_kb(lang))
     await state.set_state(None)
 
-
-# ==========================================
-# 7. ЗАПУСК БОТА
-# ==========================================
 
 async def main():
     print("🤖 Launching Astana Guide Bot Service Engine running perfectly...")
@@ -389,4 +357,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
