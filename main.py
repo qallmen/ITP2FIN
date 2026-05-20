@@ -9,6 +9,7 @@ from aiogram.fsm.state import State, StatesGroup
 from database import DatabaseManager
 from utils import calculate_nearest_places, format_feedback
 
+
 LOCALIZATION = {
     "en": {
         "welcome": "🏙 Welcome to the Professional Astana Guide Bot!",
@@ -353,6 +354,13 @@ async def route_help_to_devs(message: types.Message, state: FSMContext):
 async def main():
     print("🤖 Launching Astana Guide Bot Service Engine running perfectly...")
     await dp.start_polling(bot)
+
+def review_sentence_generator(reviews_list):
+    if not reviews_list:
+        yield "💬 Пока нет отзывов. Будьте первыми!"
+        return
+    for i, review in enumerate(reviews_list, 1):
+        yield f"{i}. {review}\n"
 
 
 if __name__ == "__main__":
